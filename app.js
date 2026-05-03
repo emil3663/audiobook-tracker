@@ -372,6 +372,41 @@ function sourceTypeLabel(type) {
   return labels[type] || labels.page;
 }
 
+function sourceLengthHint(source) {
+  const s = source || {};
+  const site = String(s.siteUrl || '').toLowerCase();
+
+  if (s.playbackType === 'direct') {
+    return {
+      shortLabel: 'Likely Full',
+      detailLabel: 'Likely Full Length',
+      tone: 'likely'
+    };
+  }
+
+  if (site.includes('libbyapp.com')) {
+    return {
+      shortLabel: 'Likely Full',
+      detailLabel: 'Likely Full Length (Library Borrow)',
+      tone: 'likely'
+    };
+  }
+
+  if (s.playbackType === 'drm') {
+    return {
+      shortLabel: 'Unknown Length',
+      detailLabel: 'Length Unknown (Provider Controlled)',
+      tone: 'unknown'
+    };
+  }
+
+  return {
+    shortLabel: 'Unknown Length',
+    detailLabel: 'Length Unknown',
+    tone: 'unknown'
+  };
+}
+
 function sourceTypeWeight(type) {
   if (type === 'direct') return 2;
   if (type === 'page') return 1;
@@ -627,12 +662,14 @@ function renderDetail(book) {
     : `<div class="detail-cover-placeholder">📚</div>`;
 
   const source = sourceDescriptorForBook(book);
+  const lengthHint = sourceLengthHint(source);
   const sourceSiteUrl = source.siteUrl || '';
   const sourceStreamUrl = source.streamUrl || '';
   const audioMime = sourceStreamUrl ? audioMimeFromUrl(sourceStreamUrl) : '';
   const canPlayInApp = source.playbackType === 'direct' && Boolean(sourceStreamUrl) && isPlayableAudioUrl(sourceStreamUrl);
   const sourceHtml = sourceSiteUrl
     ? `<p><strong>Source:</strong> ${escapeHtml(sourceTypeLabel(source.playbackType))}</p>
+       <p><span class="detail-length-badge ${escapeHtml(lengthHint.tone)}">${escapeHtml(lengthHint.detailLabel)}</span></p>
        <p><a class="btn-secondary source-open-btn" href="${escapeHtml(safeUrl(sourceSiteUrl))}" target="_blank" rel="noopener noreferrer">Open on source site</a></p>`
     : `<p style="color:var(--text-muted)">No source URL saved.</p>`;
   const inAppPlayerHtml = canPlayInApp
@@ -879,7 +916,7 @@ async function runOlSearch() {
                 <div class="ol-result-libby-icon">L</div>
                 <div>
                   <div class="r-title">${escapeHtml(q)}</div>
-                  <div class="r-author">Search on Libby <span class="ol-result-badge libby">Free via library</span></div>
+                  <div class="r-author">Search on Libby <span class="ol-result-badge libby">Free via library</span> <span class="ol-result-badge length-likely">Likely Full</span></div>
                 </div>
               </li>`;
 
@@ -887,6 +924,7 @@ async function runOlSearch() {
       const rawTitle = d.title || 'Unknown';
       const rawAuthor = (d.author_name || []).join(', ') || 'Unknown';
       const source = d._source || { playbackType: 'page', streamUrl: '', siteUrl: `https://openlibrary.org${d.key || ''}` };
+      const lengthHint = sourceLengthHint(source);
       const cover = d.cover_i
         ? `<img src="${OL_COVERS}/${d.cover_i}-S.jpg" alt="" loading="lazy" />`
         : '<div style="width:32px;height:44px;background:var(--surface)"></div>';
@@ -906,7 +944,7 @@ async function runOlSearch() {
                 ${cover}
                 <div>
                   <div class="r-title">${escapeHtml(rawTitle)}${year}</div>
-                  <div class="r-author">${escapeHtml(rawAuthor)} ${sourceBadge}</div>
+                  <div class="r-author">${escapeHtml(rawAuthor)} ${sourceBadge} <span class="ol-result-badge length-${escapeHtml(lengthHint.tone)}">${escapeHtml(lengthHint.shortLabel)}</span></div>
                 </div>
               </li>`;
     }).join('');

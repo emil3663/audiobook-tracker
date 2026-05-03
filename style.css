@@ -590,6 +590,18 @@ select option {
   border-color: #2a4d6a;
 }
 
+.ol-result-badge.length-likely {
+  background: #163525;
+  color: #6fe0a4;
+  border-color: #2c5f46;
+}
+
+.ol-result-badge.length-unknown {
+  background: #3a3430;
+  color: #d8c7aa;
+  border-color: #5d5349;
+}
+
 .ol-result-libby {
   border-left: 3px solid #5bc4f5;
 }
@@ -606,6 +618,27 @@ select option {
   font-weight: 700;
   font-size: 1.1rem;
   flex-shrink: 0;
+}
+
+.detail-length-badge {
+  display: inline-block;
+  font-size: .75rem;
+  margin: .2rem 0 .35rem;
+  padding: .12rem .45rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+}
+
+.detail-length-badge.likely {
+  background: #163525;
+  color: #6fe0a4;
+  border-color: #2c5f46;
+}
+
+.detail-length-badge.unknown {
+  background: #3a3430;
+  color: #d8c7aa;
+  border-color: #5d5349;
 }
 
 /* Form groups */
