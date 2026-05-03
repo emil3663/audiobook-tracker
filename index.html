@@ -184,8 +184,8 @@
 
       <div class="library-access">
         <h2>Library Access (One-Time Setup)</h2>
-        <p class="library-copy">Use this once if you have Open Library and/or Hoopla access. Library links will only
-          appear in search results when enabled.</p>
+        <p class="library-copy">Use this once to connect your services. Library links only appear in results when
+          enabled.</p>
         <div class="library-grid">
           <div class="form-group">
             <label for="library-system-name">Library system name (shared)</label>
@@ -196,10 +196,16 @@
             <input type="text" id="library-card-last4" maxlength="4" placeholder="1234" />
           </div>
         </div>
+
+        <h3 class="library-subtitle">Your Access</h3>
         <div class="library-flags">
-          <label><input type="checkbox" id="pref-openlibrary-enabled" /> I have an Open Library account</label>
-          <label><input type="checkbox" id="pref-hoopla-enabled" /> I have Hoopla access via library card</label>
+          <label class="library-flag-item"><input type="checkbox" id="pref-openlibrary-enabled" /><span>I have an Open
+              Library account</span></label>
+          <label class="library-flag-item"><input type="checkbox" id="pref-hoopla-enabled" /><span>I have Hoopla access
+              via library card</span></label>
         </div>
+
+        <h3 class="library-subtitle">Register (if needed)</h3>
         <div class="library-actions">
           <a class="btn-secondary" href="https://openlibrary.org/account/create" target="_blank"
             rel="noopener noreferrer">Register Open Library</a>

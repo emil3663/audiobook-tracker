@@ -761,6 +761,15 @@ select option {
   margin-bottom: .8rem;
 }
 
+.library-subtitle {
+  font-size: .84rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin: .45rem 0 .45rem;
+}
+
 .library-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -773,23 +782,38 @@ select option {
   margin: .35rem 0 .9rem;
 }
 
-.library-flags label {
+.library-flag-item {
   display: flex;
   align-items: center;
   gap: .5rem;
   color: var(--text);
   font-size: .88rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: .55rem .65rem;
+}
+
+.library-flag-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--accent);
 }
 
 .library-actions {
   display: flex;
   flex-wrap: wrap;
   gap: .55rem;
+  align-items: center;
 }
 
 .library-actions .btn-secondary,
 .library-actions .btn-primary {
   text-decoration: none;
+}
+
+.library-actions .btn-primary {
+  margin-left: auto;
 }
 
 .source-grid {
@@ -834,6 +858,8 @@ select option {
 
 .discover-search {
   margin-top: 1.5rem;
+  border-top: 1px solid var(--border);
+  padding-top: 1.2rem;
 }
 
 .sort-row {
@@ -999,6 +1025,7 @@ select option {
 
   .library-actions {
     flex-direction: column;
+    align-items: stretch;
   }
 
   .library-actions .btn-secondary,
