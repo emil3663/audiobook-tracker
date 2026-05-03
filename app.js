@@ -547,8 +547,17 @@ async function loadMoreByAuthor(book) {
       const year = w.first_publish_year ? escapeHtml(String(w.first_publish_year)) : '';
       const covId = w.cover_id || (w.covers && w.covers[0]);
       const wCover = covId ? `<img src="${OL_COVERS}/${covId}-S.jpg" alt="" loading="lazy" />` : '';
-      const lvUrl = librivoxSearchUrl(w.title || '');
+      const rawTitle = w.title || '';
+      const lvUrl = librivoxSearchUrl(rawTitle);
       const olUrl = `https://openlibrary.org${escapeHtml(w.key || '')}`;
+      const hpUrl = hooplaSearchUrl(rawTitle);
+      const libraryLinks = [];
+      if (libraryPrefs.openLibraryEnabled) {
+        libraryLinks.push(`<a class="mbi-link" href="${olUrl}" target="_blank" rel="noopener noreferrer">Open Library ↗</a>`);
+      }
+      if (libraryPrefs.hooplaEnabled) {
+        libraryLinks.push(`<a class="mbi-link" href="${hpUrl}" target="_blank" rel="noopener noreferrer">Hoopla ↗</a>`);
+      }
       return `
           <li class="more-by-item">
             ${wCover}
@@ -557,7 +566,7 @@ async function loadMoreByAuthor(book) {
               ${year ? `<div class="mbi-year">${year}</div>` : ''}
             </div>
             <a class="mbi-link" href="${lvUrl}" target="_blank" rel="noopener noreferrer">LibriVox ↗</a>
-            <a class="mbi-link" href="${olUrl}" target="_blank" rel="noopener noreferrer">Open Library ↗</a>
+            ${libraryLinks.join('')}
           </li>`;
     }).join('')}
     </ul>`;
