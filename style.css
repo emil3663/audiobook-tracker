@@ -684,6 +684,55 @@ select option {
   word-break: break-all;
 }
 
+.audio-player-wrap {
+  margin-top: .7rem;
+  padding: .65rem .75rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface2);
+}
+
+.audio-player-label {
+  margin: 0 0 .45rem;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+
+#book-audio-player {
+  width: 100%;
+}
+
+.audio-player-hint {
+  margin-top: .5rem;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+
+.detail-offline {
+  margin-bottom: 1.25rem;
+  padding: .85rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: .9rem;
+}
+
+.audio-offline-copy {
+  margin-bottom: .55rem;
+  color: var(--text-muted);
+}
+
+.detail-offline .btn-secondary {
+  text-decoration: none;
+  display: inline-block;
+}
+
+.audio-offline-hint {
+  margin-top: .55rem;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+
 .detail-notes {
   margin-bottom: 1.5rem;
   padding: .85rem 1.1rem;

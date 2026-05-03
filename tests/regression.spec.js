@@ -234,11 +234,13 @@ test.describe('Book Detail', () => {
         const narrator = opts.narrator || '';
         const notes = opts.notes || 'Amazing story';
         const rating = opts.rating || 3;
+        const sourceUrl = opts.sourceUrl || '';
 
         await page.click('.nav-btn[data-view="add"]');
         await page.fill('#form-title', title);
         await page.fill('#form-author', author);
         if (narrator) await page.fill('#form-narrator', narrator);
+        if (sourceUrl) await page.fill('#form-source', sourceUrl);
         await page.fill('#form-notes', notes);
         if (rating > 0) await page.click(`#star-input span[data-val="${rating}"]`);
         await page.click('#add-form button[type="submit"]');
@@ -282,6 +284,31 @@ test.describe('Book Detail', () => {
         await addAndOpenBook(page);
         await expect(page.locator('#btn-edit-book')).toBeVisible();
         await expect(page.locator('#btn-delete-book')).toBeVisible();
+    });
+
+    test('detail view shows in-app audio player for direct audio URL', async ({ page }) => {
+        await resetState(page);
+        await addAndOpenBook(page, { sourceUrl: 'https://example.com/my-book.mp3' });
+        await expect(page.locator('#book-audio-player')).toBeVisible();
+        await expect(page.locator('#book-audio-player source')).toHaveAttribute('src', 'https://example.com/my-book.mp3');
+    });
+
+    test('detail view shows offline download link for direct audio URL', async ({ page }) => {
+        await resetState(page);
+        await addAndOpenBook(page, { sourceUrl: 'https://example.com/my-book.mp3' });
+        await expect(page.locator('.detail-offline')).toBeVisible();
+        await expect(page.locator('#book-download-link')).toBeVisible();
+        await expect(page.locator('#book-download-link')).toHaveAttribute('href', 'https://example.com/my-book.mp3');
+        await expect(page.locator('#book-download-link')).toHaveAttribute('download', /enders-game-orson-scott-card\.mp3/);
+    });
+
+    test('detail view does not show in-app audio player for non-audio URL', async ({ page }) => {
+        await resetState(page);
+        await addAndOpenBook(page, { sourceUrl: 'https://openlibrary.org/works/OL45883W' });
+        await expect(page.locator('#book-audio-player')).toHaveCount(0);
+        await expect(page.locator('.audio-player-hint')).toBeVisible();
+        await expect(page.locator('#book-download-link')).toHaveCount(0);
+        await expect(page.locator('.detail-offline .audio-offline-hint')).toBeVisible();
     });
 
     test('back button returns to shelf', async ({ page }) => {

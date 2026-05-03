@@ -311,6 +311,52 @@ function safeUrl(url) {
   } catch (_) { return '#'; }
 }
 
+function audioMimeFromUrl(url) {
+  try {
+    const p = new URL(url);
+    const path = p.pathname.toLowerCase();
+    if (path.endsWith('.mp3')) return 'audio/mpeg';
+    if (path.endsWith('.m4a') || path.endsWith('.aac')) return 'audio/mp4';
+    if (path.endsWith('.ogg') || path.endsWith('.oga')) return 'audio/ogg';
+    if (path.endsWith('.wav')) return 'audio/wav';
+    if (path.endsWith('.opus')) return 'audio/opus';
+    if (path.endsWith('.flac')) return 'audio/flac';
+    return '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function isPlayableAudioUrl(url) {
+  return Boolean(audioMimeFromUrl(url));
+}
+
+function downloadFileNameForBook(book) {
+  const safeTitle = String(book.title || 'audiobook')
+    .trim()
+    .replace(/[^a-z0-9\-\s]/gi, '')
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+  const safeAuthor = String(book.author || '')
+    .trim()
+    .replace(/[^a-z0-9\-\s]/gi, '')
+    .replace(/\s+/g, '-')
+    .toLowerCase();
+
+  let ext = '.mp3';
+  try {
+    const p = new URL(book.sourceUrl || '');
+    const m = p.pathname.toLowerCase().match(/\.(mp3|m4a|aac|ogg|oga|wav|opus|flac)$/);
+    if (m) ext = `.${m[1]}`;
+  } catch (_) {
+    // keep default extension
+  }
+
+  const parts = [safeTitle, safeAuthor].filter(Boolean);
+  const base = parts.length ? parts.join('-') : 'audiobook';
+  return `${base}${ext}`;
+}
+
 function starsHtml(rating) {
   const n = Number(rating) || 0;
   return '★'.repeat(n) + '☆'.repeat(5 - n);
@@ -491,9 +537,36 @@ function renderDetail(book) {
     ? `<img class="detail-cover" src="${escapeHtml(cover)}" alt="" loading="lazy" />`
     : `<div class="detail-cover-placeholder">📚</div>`;
 
+  const audioMime = book.sourceUrl ? audioMimeFromUrl(book.sourceUrl) : '';
+  const canPlayInApp = Boolean(book.sourceUrl) && isPlayableAudioUrl(book.sourceUrl);
   const sourceHtml = book.sourceUrl
     ? `<p><strong>Source:</strong> <a href="${escapeHtml(safeUrl(book.sourceUrl))}" target="_blank" rel="noopener noreferrer">${escapeHtml(book.sourceUrl)}</a></p>`
     : `<p style="color:var(--text-muted)">No source URL saved.</p>`;
+  const inAppPlayerHtml = canPlayInApp
+    ? `<div class="audio-player-wrap">
+         <p class="audio-player-label">Play in app:</p>
+         <audio id="book-audio-player" controls preload="metadata">
+           <source src="${escapeHtml(safeUrl(book.sourceUrl))}" type="${escapeHtml(audioMime)}" />
+           Your browser does not support audio playback.
+         </audio>
+       </div>`
+    : (book.sourceUrl
+      ? `<p class="audio-player-hint">To play in app, paste a direct audio file URL (for example .mp3, .m4a, .ogg, .wav) in the Add/Edit form.</p>`
+      : '');
+
+  const offlineHtml = canPlayInApp
+    ? `<div class="detail-offline">
+         <h2>Offline</h2>
+         <p class="audio-offline-copy">Download this audio file to your device for offline listening.</p>
+         <a id="book-download-link" class="btn-secondary" href="${escapeHtml(safeUrl(book.sourceUrl))}" download="${escapeHtml(downloadFileNameForBook(book))}">Download Audio</a>
+         <p class="audio-offline-hint">Downloaded files are kept on your device in your browser download location.</p>
+       </div>`
+    : (book.sourceUrl
+      ? `<div class="detail-offline">
+           <h2>Offline</h2>
+           <p class="audio-offline-hint">Offline download is available when the source is a direct audio file URL (.mp3, .m4a, .ogg, .wav, .opus, .flac).</p>
+         </div>`
+      : '');
 
   const notesHtml = book.notes
     ? `<p>${escapeHtml(book.notes)}</p>`
@@ -528,6 +601,7 @@ function renderDetail(book) {
     </div>
 
     <div class="detail-source"><h2>Where to Listen</h2>${sourceHtml}
+      ${inAppPlayerHtml}
       <p style="margin-top:.5rem; font-size:.82rem; color:var(--text-muted)">
         Search free:
         <a href="${librivoxSearchUrl(book.title)}" target="_blank" rel="noopener noreferrer">LibriVox</a> ·
@@ -535,6 +609,8 @@ function renderDetail(book) {
       </p>
       ${librarySearchHtml}
     </div>
+
+    ${offlineHtml}
 
     <div class="detail-notes"><h2>Notes</h2>${notesHtml}</div>
 
