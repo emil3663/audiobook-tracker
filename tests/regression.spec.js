@@ -602,6 +602,20 @@ test.describe('Open Library lookup (Add form)', () => {
         // Wait for results to populate (live API call — returns multiple items)
         await expect(page.locator('#ol-results.open .ol-result-item').first()).toBeVisible({ timeout: 15000 });
     });
+
+    test('selecting a result keeps search results visible', async ({ page }) => {
+        await resetState(page);
+        await page.click('.nav-btn[data-view="add"]');
+        await page.fill('#ol-search', 'Dune');
+        await page.click('#ol-search-btn');
+
+        const firstResult = page.locator('#ol-results.open .ol-result-item').first();
+        await expect(firstResult).toBeVisible({ timeout: 15000 });
+        await firstResult.click();
+
+        await expect(page.locator('#ol-results')).toHaveClass(/open/);
+        await expect(page.locator('#ol-results .ol-result-item').first()).toBeVisible();
+    });
 });
 
 // ---------------------------------------------------------------------------

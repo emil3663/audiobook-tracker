@@ -631,8 +631,6 @@ function fillFormFromResult(el) {
   document.getElementById('form-ol-key').value = el.dataset.olkey;
   document.getElementById('form-cover-id').value = el.dataset.coverid;
   document.getElementById('add-form').dataset.authorKey = el.dataset.authorkey;
-  document.getElementById('ol-results').classList.remove('open');
-  document.getElementById('ol-search').value = '';
   document.getElementById('form-title').focus();
 }
 
