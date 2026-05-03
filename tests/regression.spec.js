@@ -689,10 +689,10 @@ test.describe('Open Library lookup (Add form)', () => {
         await page.fill('#ol-search', 'sample');
         await page.click('#ol-search-btn');
 
-        const firstResult = page.locator('#ol-results .ol-result-item').first();
-        await expect(firstResult.locator('.ol-result-badge.direct')).toBeVisible();
+        const firstDirectResult = page.locator('#ol-results .ol-result-item:has(.ol-result-badge.direct)').first();
+        await expect(firstDirectResult).toBeVisible();
 
-        await firstResult.click();
+        await firstDirectResult.click();
         await expect(page.locator('#form-source')).toHaveValue('https://archive.org/download/sample_direct_item/audio-track.mp3');
 
         await page.unroute('https://openlibrary.org/search.json**');
