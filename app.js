@@ -9,15 +9,17 @@
 
 // ── Constants ────────────────────────────────────────────────────────────────
 const STORAGE_KEY = 'audiobook_tracker_books';
-const OL_API      = 'https://openlibrary.org';
-const OL_COVERS   = 'https://covers.openlibrary.org/b/id';
+const PREFS_KEY = 'audiobook_tracker_prefs';
+const OL_API = 'https://openlibrary.org';
+const OL_COVERS = 'https://covers.openlibrary.org/b/id';
 
 // ── State ────────────────────────────────────────────────────────────────────
-let books            = [];
-let editingId        = null;
-let currentUser      = null;
-let db               = null;
-let firestoreUnsub   = null;  // onSnapshot unsubscribe handle
+let books = [];
+let editingId = null;
+let currentUser = null;
+let db = null;
+let firestoreUnsub = null;  // onSnapshot unsubscribe handle
+let libraryPrefs = loadLibraryPrefs();
 
 // ── Firebase Setup ────────────────────────────────────────────────────────────
 // Firebase is optional. It activates only when firebase-config.js has real values.
@@ -58,6 +60,62 @@ if (firebaseReady) {
 function loadFromLocalStorage() {
   try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) || []; }
   catch (_) { return []; }
+}
+
+function defaultLibraryPrefs() {
+  return {
+    openLibraryEnabled: false,
+    hooplaEnabled: false,
+    librarySystemName: '',
+    libraryCardLast4: ''
+  };
+}
+
+function loadLibraryPrefs() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(PREFS_KEY) || '{}');
+    return {
+      ...defaultLibraryPrefs(),
+      ...raw,
+      libraryCardLast4: String(raw.libraryCardLast4 || '').replace(/\D/g, '').slice(0, 4)
+    };
+  } catch (_) {
+    return defaultLibraryPrefs();
+  }
+}
+
+function saveLibraryPrefs() {
+  localStorage.setItem(PREFS_KEY, JSON.stringify(libraryPrefs));
+}
+
+function applyLibraryPrefsToUi() {
+  const open = document.getElementById('pref-openlibrary-enabled');
+  const hoopla = document.getElementById('pref-hoopla-enabled');
+  const libName = document.getElementById('library-system-name');
+  const last4 = document.getElementById('library-card-last4');
+  if (!open || !hoopla || !libName || !last4) return;
+
+  open.checked = Boolean(libraryPrefs.openLibraryEnabled);
+  hoopla.checked = Boolean(libraryPrefs.hooplaEnabled);
+  libName.value = libraryPrefs.librarySystemName || '';
+  last4.value = libraryPrefs.libraryCardLast4 || '';
+}
+
+function readLibraryPrefsFromUi() {
+  const open = document.getElementById('pref-openlibrary-enabled');
+  const hoopla = document.getElementById('pref-hoopla-enabled');
+  const libName = document.getElementById('library-system-name');
+  const last4 = document.getElementById('library-card-last4');
+  if (!open || !hoopla || !libName || !last4) return;
+
+  libraryPrefs = {
+    openLibraryEnabled: open.checked,
+    hooplaEnabled: hoopla.checked,
+    librarySystemName: libName.value.trim(),
+    libraryCardLast4: last4.value.replace(/\D/g, '').slice(0, 4)
+  };
+  last4.value = libraryPrefs.libraryCardLast4;
+  saveLibraryPrefs();
 }
 
 function saveToLocalStorage() {
@@ -123,7 +181,7 @@ async function migrateLocalStorageToFirestore(uid) {
 
 // ── Auth UI ───────────────────────────────────────────────────────────────────
 function updateAuthUI() {
-  const btn    = document.getElementById('auth-btn');
+  const btn = document.getElementById('auth-btn');
   const status = document.getElementById('sync-status');
   if (!firebaseReady) return;
 
@@ -142,13 +200,13 @@ function setSyncStatus(state) {
   const el = document.getElementById('sync-status');
   if (!el) return;
   const cfg = {
-    syncing: { icon: '🔄', label: 'Syncing…',  cls: 'sync-syncing' },
-    synced:  { icon: '☁️', label: 'Synced',    cls: 'sync-synced'  },
-    error:   { icon: '⚠️', label: 'Sync error', cls: 'sync-error'   },
+    syncing: { icon: '🔄', label: 'Syncing…', cls: 'sync-syncing' },
+    synced: { icon: '☁️', label: 'Synced', cls: 'sync-synced' },
+    error: { icon: '⚠️', label: 'Sync error', cls: 'sync-error' },
   };
   const c = cfg[state] || cfg.synced;
   el.textContent = `${c.icon} ${c.label}`;
-  el.className   = `sync-status ${c.cls}`;
+  el.className = `sync-status ${c.cls}`;
 }
 
 // Header auth button
@@ -178,9 +236,9 @@ function closeAuthModal() {
 
 function setAuthModalMode(mode) {
   const isSignUp = mode === 'signup';
-  document.getElementById('auth-modal-title').textContent  = isSignUp ? 'Create Account' : 'Sign In to Sync';
-  document.getElementById('auth-submit-btn').textContent   = isSignUp ? 'Create Account' : 'Sign In';
-  document.getElementById('auth-toggle').textContent       = isSignUp
+  document.getElementById('auth-modal-title').textContent = isSignUp ? 'Create Account' : 'Sign In to Sync';
+  document.getElementById('auth-submit-btn').textContent = isSignUp ? 'Create Account' : 'Sign In';
+  document.getElementById('auth-toggle').textContent = isSignUp
     ? 'Already have an account? Sign in'
     : "Don't have an account? Sign up";
 }
@@ -191,7 +249,7 @@ document.getElementById('auth-modal').addEventListener('click', e => {
 });
 
 document.getElementById('auth-toggle').addEventListener('click', () => {
-  const modal  = document.getElementById('auth-modal');
+  const modal = document.getElementById('auth-modal');
   const newMode = modal.dataset.mode === 'signup' ? 'signin' : 'signup';
   modal.dataset.mode = newMode;
   setAuthModalMode(newMode);
@@ -200,11 +258,11 @@ document.getElementById('auth-toggle').addEventListener('click', () => {
 
 document.getElementById('auth-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const email   = document.getElementById('auth-email').value.trim();
-  const pass    = document.getElementById('auth-password').value;
+  const email = document.getElementById('auth-email').value.trim();
+  const pass = document.getElementById('auth-password').value;
   const isSignUp = document.getElementById('auth-modal').dataset.mode === 'signup';
-  const errEl   = document.getElementById('auth-error');
-  const btn     = document.getElementById('auth-submit-btn');
+  const errEl = document.getElementById('auth-error');
+  const btn = document.getElementById('auth-submit-btn');
   errEl.textContent = '';
   btn.disabled = true;
   try {
@@ -224,14 +282,14 @@ document.getElementById('auth-form').addEventListener('submit', async e => {
 
 function friendlyAuthError(code) {
   const map = {
-    'auth/invalid-email':          'Please enter a valid email address.',
-    'auth/user-not-found':         'No account found with that email.',
-    'auth/wrong-password':         'Incorrect password.',
-    'auth/email-already-in-use':   'An account with that email already exists.',
-    'auth/weak-password':          'Password must be at least 6 characters.',
-    'auth/too-many-requests':      'Too many attempts. Try again later.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/user-not-found': 'No account found with that email.',
+    'auth/wrong-password': 'Incorrect password.',
+    'auth/email-already-in-use': 'An account with that email already exists.',
+    'auth/weak-password': 'Password must be at least 6 characters.',
+    'auth/too-many-requests': 'Too many attempts. Try again later.',
     'auth/network-request-failed': 'Network error. Check your connection.',
-    'auth/invalid-credential':     'Incorrect email or password.',
+    'auth/invalid-credential': 'Incorrect email or password.',
   };
   return map[code] || 'An error occurred. Please try again.';
 }
@@ -275,6 +333,10 @@ function loyalBooksSearchUrl(title) {
   return `https://www.loyalbooks.com/search?q=${encodeURIComponent(title)}`;
 }
 
+function hooplaSearchUrl(title) {
+  return `https://www.hoopladigital.com/search?q=${encodeURIComponent(title)}`;
+}
+
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
@@ -284,9 +346,9 @@ function showView(name) {
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   const view = document.getElementById(`view-${name}`);
-  const btn  = document.querySelector(`.nav-btn[data-view="${name}"]`);
+  const btn = document.querySelector(`.nav-btn[data-view="${name}"]`);
   if (view) view.classList.add('active');
-  if (btn)  btn.classList.add('active');
+  if (btn) btn.classList.add('active');
   if (name === 'shelf') renderShelf();
 }
 
@@ -302,8 +364,8 @@ document.addEventListener('click', e => {
 function renderShelf() {
   const search = document.getElementById('search-shelf').value.toLowerCase();
   const status = document.getElementById('filter-status').value;
-  const list   = document.getElementById('shelf-list');
-  const empty  = document.getElementById('shelf-empty');
+  const list = document.getElementById('shelf-list');
+  const empty = document.getElementById('shelf-empty');
 
   let filtered = books.filter(b => {
     const matchSearch = !search ||
@@ -338,6 +400,7 @@ function renderShelf() {
         <div class="book-info">
           <div class="title">${escapeHtml(book.title)}</div>
           <div class="author">${escapeHtml(book.author)}</div>
+          ${book.narrator ? `<div class="author">Narrator: ${escapeHtml(book.narrator)}</div>` : ''}
           ${book.rating > 0 ? `<div class="book-stars">${starsHtml(book.rating)}</div>` : ''}
         </div>
         <span class="status-badge status-${escapeHtml(book.status)}">${statusLabel(book.status)}</span>
@@ -345,7 +408,7 @@ function renderShelf() {
   }).join('');
 
   list.querySelectorAll('.book-item').forEach(el => {
-    el.addEventListener('click',   () => openDetail(el.dataset.id));
+    el.addEventListener('click', () => openDetail(el.dataset.id));
     el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') openDetail(el.dataset.id); });
   });
 }
@@ -376,12 +439,25 @@ function renderDetail(book) {
     ? `<p>${escapeHtml(book.notes)}</p>`
     : `<p style="color:var(--text-muted)">No notes yet.</p>`;
 
+  const librarySearchLinks = [];
+  if (libraryPrefs.openLibraryEnabled) {
+    const olTitle = encodeURIComponent(book.title);
+    librarySearchLinks.push(`<a href="https://openlibrary.org/search?q=${olTitle}" target="_blank" rel="noopener noreferrer">Open Library</a>`);
+  }
+  if (libraryPrefs.hooplaEnabled) {
+    librarySearchLinks.push(`<a href="${hooplaSearchUrl(book.title)}" target="_blank" rel="noopener noreferrer">Hoopla</a>`);
+  }
+  const librarySearchHtml = librarySearchLinks.length
+    ? `<p style="margin-top:.5rem; font-size:.82rem; color:var(--text-muted)">Library options: ${librarySearchLinks.join(' · ')}</p>`
+    : '';
+
   document.getElementById('detail-content').innerHTML = `
     <div class="detail-hero">
       ${coverHtml}
       <div class="detail-meta">
         <h1>${escapeHtml(book.title)}</h1>
         <div class="detail-author">${escapeHtml(book.author)}</div>
+        ${book.narrator ? `<div class="detail-author">Narrated by ${escapeHtml(book.narrator)}</div>` : ''}
         <div class="detail-stars">${starsHtml(book.rating)}</div>
         <span class="status-badge status-${escapeHtml(book.status)}">${statusLabel(book.status)}</span>
         <div class="detail-actions">
@@ -397,6 +473,7 @@ function renderDetail(book) {
         <a href="${librivoxSearchUrl(book.title)}" target="_blank" rel="noopener noreferrer">LibriVox</a> ·
         <a href="${loyalBooksSearchUrl(book.title)}" target="_blank" rel="noopener noreferrer">Loyal Books</a>
       </p>
+      ${librarySearchHtml}
     </div>
 
     <div class="detail-notes"><h2>Notes</h2>${notesHtml}</div>
@@ -407,7 +484,7 @@ function renderDetail(book) {
     </div>
   `;
 
-  document.getElementById('btn-edit-book').addEventListener('click',   () => startEdit(book.id));
+  document.getElementById('btn-edit-book').addEventListener('click', () => startEdit(book.id));
   document.getElementById('btn-delete-book').addEventListener('click', () => deleteBook(book.id));
 }
 
@@ -423,16 +500,17 @@ function startEdit(id) {
   const book = books.find(b => b.id === id);
   if (!book) return;
   editingId = id;
-  document.getElementById('add-form-title').textContent  = 'Edit Audiobook';
-  document.getElementById('form-id').value       = book.id;
-  document.getElementById('form-title').value    = book.title;
-  document.getElementById('form-author').value   = book.author;
-  document.getElementById('form-status').value   = book.status;
-  document.getElementById('form-source').value   = book.sourceUrl || '';
-  document.getElementById('form-notes').value    = book.notes || '';
-  document.getElementById('form-ol-key').value   = book.olKey || '';
+  document.getElementById('add-form-title').textContent = 'Edit Audiobook';
+  document.getElementById('form-id').value = book.id;
+  document.getElementById('form-title').value = book.title;
+  document.getElementById('form-author').value = book.author;
+  document.getElementById('form-narrator').value = book.narrator || '';
+  document.getElementById('form-status').value = book.status;
+  document.getElementById('form-source').value = book.sourceUrl || '';
+  document.getElementById('form-notes').value = book.notes || '';
+  document.getElementById('form-ol-key').value = book.olKey || '';
   document.getElementById('form-cover-id').value = book.coverId || '';
-  document.getElementById('form-rating').value   = book.rating || 0;
+  document.getElementById('form-rating').value = book.rating || 0;
   document.getElementById('add-form').dataset.authorKey = book.authorKey || '';
   updateStars(book.rating || 0);
   document.getElementById('ol-results').classList.remove('open');
@@ -451,11 +529,11 @@ async function loadMoreByAuthor(book) {
   try {
     let works = [];
     if (book.authorKey) {
-      const res  = await fetch(`${OL_API}/authors/${book.authorKey}/works.json?limit=20`);
+      const res = await fetch(`${OL_API}/authors/${book.authorKey}/works.json?limit=20`);
       const data = await res.json();
       works = (data.entries || []).filter(w => w.title !== book.title);
     } else {
-      const res  = await fetch(`${OL_API}/search.json?author=${encodeURIComponent(book.author)}&limit=20`);
+      const res = await fetch(`${OL_API}/search.json?author=${encodeURIComponent(book.author)}&limit=20`);
       const data = await res.json();
       works = (data.docs || []).filter(w => w.title !== book.title);
     }
@@ -465,13 +543,13 @@ async function loadMoreByAuthor(book) {
     const shown = works.slice(0, 8);
     container.innerHTML = `<ul class="more-by-list">
       ${shown.map(w => {
-        const wTitle = escapeHtml(w.title || 'Unknown');
-        const year   = w.first_publish_year ? escapeHtml(String(w.first_publish_year)) : '';
-        const covId  = w.cover_id || (w.covers && w.covers[0]);
-        const wCover = covId ? `<img src="${OL_COVERS}/${covId}-S.jpg" alt="" loading="lazy" />` : '';
-        const lvUrl  = librivoxSearchUrl(w.title || '');
-        const olUrl  = `https://openlibrary.org${escapeHtml(w.key || '')}`;
-        return `
+      const wTitle = escapeHtml(w.title || 'Unknown');
+      const year = w.first_publish_year ? escapeHtml(String(w.first_publish_year)) : '';
+      const covId = w.cover_id || (w.covers && w.covers[0]);
+      const wCover = covId ? `<img src="${OL_COVERS}/${covId}-S.jpg" alt="" loading="lazy" />` : '';
+      const lvUrl = librivoxSearchUrl(w.title || '');
+      const olUrl = `https://openlibrary.org${escapeHtml(w.key || '')}`;
+      return `
           <li class="more-by-item">
             ${wCover}
             <div>
@@ -481,7 +559,7 @@ async function loadMoreByAuthor(book) {
             <a class="mbi-link" href="${lvUrl}" target="_blank" rel="noopener noreferrer">LibriVox ↗</a>
             <a class="mbi-link" href="${olUrl}" target="_blank" rel="noopener noreferrer">Open Library ↗</a>
           </li>`;
-      }).join('')}
+    }).join('')}
     </ul>`;
   } catch (_) {
     container.textContent = 'Could not load author works (check your connection).';
@@ -495,14 +573,14 @@ document.getElementById('ol-search').addEventListener('keydown', e => {
 });
 
 async function runOlSearch() {
-  const q    = document.getElementById('ol-search').value.trim();
+  const q = document.getElementById('ol-search').value.trim();
   if (!q) return;
   const list = document.getElementById('ol-results');
   list.innerHTML = '<li style="padding:.6rem .85rem;color:var(--text-muted)">Searching…</li>';
   list.classList.add('open');
 
   try {
-    const res  = await fetch(`${OL_API}/search.json?q=${encodeURIComponent(q)}&limit=10&fields=key,title,author_name,author_key,cover_i,first_publish_year`);
+    const res = await fetch(`${OL_API}/search.json?q=${encodeURIComponent(q)}&limit=10&fields=key,title,author_name,author_key,cover_i,first_publish_year`);
     const data = await res.json();
     const docs = data.docs || [];
 
@@ -512,9 +590,9 @@ async function runOlSearch() {
     }
 
     list.innerHTML = docs.map(d => {
-      const rawTitle  = d.title || 'Unknown';
+      const rawTitle = d.title || 'Unknown';
       const rawAuthor = (d.author_name || []).join(', ') || 'Unknown';
-      const cover     = d.cover_i
+      const cover = d.cover_i
         ? `<img src="${OL_COVERS}/${d.cover_i}-S.jpg" alt="" loading="lazy" />`
         : '<div style="width:32px;height:44px;background:var(--surface)"></div>';
       const year = d.first_publish_year ? ` (${d.first_publish_year})` : '';
@@ -539,9 +617,9 @@ async function runOlSearch() {
 }
 
 function fillFormFromResult(el) {
-  document.getElementById('form-title').value    = el.dataset.title;
-  document.getElementById('form-author').value   = el.dataset.author;
-  document.getElementById('form-ol-key').value   = el.dataset.olkey;
+  document.getElementById('form-title').value = el.dataset.title;
+  document.getElementById('form-author').value = el.dataset.author;
+  document.getElementById('form-ol-key').value = el.dataset.olkey;
   document.getElementById('form-cover-id').value = el.dataset.coverid;
   document.getElementById('add-form').dataset.authorKey = el.dataset.authorkey;
   document.getElementById('ol-results').classList.remove('open');
@@ -588,14 +666,15 @@ document.getElementById('add-form').addEventListener('submit', async e => {
   e.preventDefault();
   const form = e.target;
 
-  const title     = document.getElementById('form-title').value.trim();
-  const author    = document.getElementById('form-author').value.trim();
-  const status    = document.getElementById('form-status').value;
+  const title = document.getElementById('form-title').value.trim();
+  const author = document.getElementById('form-author').value.trim();
+  const narrator = document.getElementById('form-narrator').value.trim();
+  const status = document.getElementById('form-status').value;
   const sourceUrl = document.getElementById('form-source').value.trim();
-  const rating    = Number(document.getElementById('form-rating').value);
-  const notes     = document.getElementById('form-notes').value.trim();
-  const olKey     = document.getElementById('form-ol-key').value;
-  const coverId   = document.getElementById('form-cover-id').value;
+  const rating = Number(document.getElementById('form-rating').value);
+  const notes = document.getElementById('form-notes').value.trim();
+  const olKey = document.getElementById('form-ol-key').value;
+  const coverId = document.getElementById('form-cover-id').value;
   const authorKey = form.dataset.authorKey || '';
 
   if (!title || !author) return;
@@ -606,10 +685,10 @@ document.getElementById('add-form').addEventListener('submit', async e => {
   try {
     if (editingId) {
       const existing = books.find(b => b.id === editingId) || {};
-      await persistBook({ ...existing, title, author, status, sourceUrl, rating, notes, olKey, coverId, authorKey });
+      await persistBook({ ...existing, title, author, narrator, status, sourceUrl, rating, notes, olKey, coverId, authorKey });
       editingId = null;
     } else {
-      await persistBook({ id: genId(), title, author, status, sourceUrl, rating, notes, olKey, coverId, authorKey, addedAt: Date.now() });
+      await persistBook({ id: genId(), title, author, narrator, status, sourceUrl, rating, notes, olKey, coverId, authorKey, addedAt: Date.now() });
     }
   } finally {
     btn.disabled = false;
@@ -627,13 +706,13 @@ document.getElementById('cancel-add').addEventListener('click', () => {
 
 function resetAddForm() {
   editingId = null;
-  document.getElementById('add-form-title').textContent  = 'Add Audiobook';
+  document.getElementById('add-form-title').textContent = 'Add Audiobook';
   document.getElementById('add-form').reset();
-  document.getElementById('add-form').dataset.authorKey  = '';
-  document.getElementById('form-id').value               = '';
-  document.getElementById('form-ol-key').value           = '';
-  document.getElementById('form-cover-id').value         = '';
-  document.getElementById('form-rating').value           = '0';
+  document.getElementById('add-form').dataset.authorKey = '';
+  document.getElementById('form-id').value = '';
+  document.getElementById('form-ol-key').value = '';
+  document.getElementById('form-cover-id').value = '';
+  document.getElementById('form-rating').value = '0';
   updateStars(0);
   document.getElementById('ol-results').classList.remove('open');
 }
@@ -653,9 +732,9 @@ document.getElementById('discover-sort').addEventListener('change', () => {
 let lastDiscoverItems = [];
 
 async function runDiscoverSearch() {
-  const q       = document.getElementById('discover-search').value.trim();
+  const q = document.getElementById('discover-search').value.trim();
   const subject = document.getElementById('discover-subject').value;
-  const sort    = document.getElementById('discover-sort').value;
+  const sort = document.getElementById('discover-sort').value;
   const results = document.getElementById('discover-results');
   const loading = document.getElementById('discover-loading');
 
@@ -667,14 +746,14 @@ async function runDiscoverSearch() {
   try {
     // Always use /search.json so all sort options work consistently
     const params = new URLSearchParams({
-      limit:  '40',
+      limit: '40',
       fields: 'key,title,author_name,author_key,cover_i,first_publish_year,ratings_average,readinglog_count',
     });
-    if (q)       params.set('q', q);
+    if (q) params.set('q', q);
     if (subject) params.set('subject', subject);
     if (sort && sort !== 'editions') params.set('sort', sort);
 
-    const res  = await fetch(`${OL_API}/search.json?${params}`);
+    const res = await fetch(`${OL_API}/search.json?${params}`);
     const data = await res.json();
     lastDiscoverItems = data.docs || [];
 
@@ -713,26 +792,38 @@ function renderDiscoverResults(items, sort) {
   }
 
   results.innerHTML = sorted.map(item => {
-    const title   = escapeHtml(item.title || 'Unknown');
+    const title = escapeHtml(item.title || 'Unknown');
     const authors = escapeHtml((item.author_name || []).join(', ') || 'Unknown');
-    const covId   = item.cover_i;
+    const covId = item.cover_i;
     const coverHtml = covId
       ? `<img src="${OL_COVERS}/${covId}-M.jpg" alt="" loading="lazy" />`
       : `<div class="disc-card-placeholder">📚</div>`;
     const lvUrl = librivoxSearchUrl(item.title || '');
     const lbUrl = loyalBooksSearchUrl(item.title || '');
     const olUrl = `https://openlibrary.org${escapeHtml(item.key || '')}`;
+    const hpUrl = hooplaSearchUrl(item.title || '');
 
-    const rating  = item.ratings_average ? Number(item.ratings_average).toFixed(1) : null;
-    const reads   = item.readinglog_count ? item.readinglog_count.toLocaleString() : null;
-    const year    = item.first_publish_year ? String(item.first_publish_year) : null;
+    const rating = item.ratings_average ? Number(item.ratings_average).toFixed(1) : null;
+    const reads = item.readinglog_count ? item.readinglog_count.toLocaleString() : null;
+    const year = item.first_publish_year ? String(item.first_publish_year) : null;
 
     const metaParts = [];
     if (rating) metaParts.push(`★ ${escapeHtml(rating)}`);
-    if (reads)  metaParts.push(`📖 ${escapeHtml(reads)}`);
-    if (year)   metaParts.push(`📅 ${escapeHtml(year)}`);
+    if (reads) metaParts.push(`📖 ${escapeHtml(reads)}`);
+    if (year) metaParts.push(`📅 ${escapeHtml(year)}`);
     const metaHtml = metaParts.length
       ? `<div class="dc-meta">${metaParts.join('  ·  ')}</div>`
+      : '';
+
+    const libraryLinks = [];
+    if (libraryPrefs.openLibraryEnabled) {
+      libraryLinks.push(`<a href="${olUrl}" target="_blank" rel="noopener noreferrer">Open Library ↗</a>`);
+    }
+    if (libraryPrefs.hooplaEnabled) {
+      libraryLinks.push(`<a href="${hpUrl}" target="_blank" rel="noopener noreferrer">Hoopla ↗</a>`);
+    }
+    const libraryActions = libraryLinks.length
+      ? `<div class="disc-card-actions library-actions-row"><span class="library-tag">Library:</span>${libraryLinks.join('')}</div>`
       : '';
 
     return `
@@ -745,12 +836,23 @@ function renderDiscoverResults(items, sort) {
           <div class="disc-card-actions">
             <a href="${lvUrl}" target="_blank" rel="noopener noreferrer">LibriVox ↗</a>
             <a href="${lbUrl}" target="_blank" rel="noopener noreferrer">Loyal Books ↗</a>
-            <a href="${olUrl}" target="_blank" rel="noopener noreferrer">Open Library ↗</a>
           </div>
+          ${libraryActions}
         </div>
       </div>`;
   }).join('');
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
+const saveLibraryPrefsBtn = document.getElementById('save-library-prefs');
+if (saveLibraryPrefsBtn) {
+  saveLibraryPrefsBtn.addEventListener('click', () => {
+    readLibraryPrefsFromUi();
+    alert('Library setup saved. Discover results now reflect your selected access.');
+    if (document.getElementById('discover-results').children.length > 0) {
+      renderDiscoverResults(lastDiscoverItems, document.getElementById('discover-sort').value);
+    }
+  });
+}
+applyLibraryPrefsToUi();
 renderShelf();
