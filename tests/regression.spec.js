@@ -645,6 +645,60 @@ test.describe('Open Library lookup (Add form)', () => {
         await page.unroute('https://openlibrary.org/search.json**');
     });
 
+    test('search ranks direct audio matches first and fills direct stream URL', async ({ page }) => {
+        await resetState(page);
+        await page.click('.nav-btn[data-view="add"]');
+
+        await page.route('https://openlibrary.org/search.json**', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    docs: [
+                        {
+                            key: '/works/OL111W',
+                            title: 'Sample Page Result',
+                            author_name: ['Author A'],
+                            author_key: ['OL1A'],
+                            ia: []
+                        },
+                        {
+                            key: '/works/OL222W',
+                            title: 'Sample Direct Result',
+                            author_name: ['Author B'],
+                            author_key: ['OL2A'],
+                            ia: ['sample_direct_item']
+                        }
+                    ]
+                }),
+            });
+        });
+
+        await page.route('https://archive.org/metadata/sample_direct_item', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({
+                    files: [
+                        { name: 'audio-track.mp3' }
+                    ]
+                }),
+            });
+        });
+
+        await page.fill('#ol-search', 'sample');
+        await page.click('#ol-search-btn');
+
+        const firstResult = page.locator('#ol-results .ol-result-item').first();
+        await expect(firstResult.locator('.ol-result-badge.direct')).toBeVisible();
+
+        await firstResult.click();
+        await expect(page.locator('#form-source')).toHaveValue('https://archive.org/download/sample_direct_item/audio-track.mp3');
+
+        await page.unroute('https://openlibrary.org/search.json**');
+        await page.unroute('https://archive.org/metadata/sample_direct_item');
+    });
+
     test('empty search does not show results list', async ({ page }) => {
         await resetState(page);
         await page.click('.nav-btn[data-view="add"]');

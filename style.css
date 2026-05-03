@@ -556,6 +556,34 @@ select option {
   color: var(--text-muted);
 }
 
+.ol-result-badge {
+  display: inline-block;
+  margin-left: .35rem;
+  font-size: .7rem;
+  padding: .05rem .35rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  vertical-align: text-top;
+}
+
+.ol-result-badge.direct {
+  background: #1e3a2f;
+  color: var(--green);
+  border-color: #2f5b49;
+}
+
+.ol-result-badge.page {
+  background: #2a2d4a;
+  color: var(--accent2);
+  border-color: #3a3f66;
+}
+
+.ol-result-badge.drm {
+  background: #3b2a16;
+  color: var(--yellow);
+  border-color: #5a4425;
+}
+
 /* Form groups */
 .form-group {
   margin-bottom: 1.1rem;
@@ -682,6 +710,12 @@ select option {
 .detail-source a {
   color: var(--accent2);
   word-break: break-all;
+}
+
+.detail-source .source-open-btn {
+  text-decoration: none;
+  display: inline-block;
+  margin-top: .35rem;
 }
 
 .audio-player-wrap {

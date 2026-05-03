@@ -331,6 +331,91 @@ function isPlayableAudioUrl(url) {
   return Boolean(audioMimeFromUrl(url));
 }
 
+const DRM_HOST_HINTS = ['hoopladigital.com', 'audible.', 'storytel.', 'scribd.com', 'spotify.com', 'kobo.com'];
+
+function resolveSourceFromUrl(rawUrl) {
+  const siteUrl = safeUrl(rawUrl || '');
+  if (!rawUrl || siteUrl === '#') {
+    return { playbackType: 'page', streamUrl: '', siteUrl: '' };
+  }
+
+  if (isPlayableAudioUrl(rawUrl)) {
+    return { playbackType: 'direct', streamUrl: rawUrl, siteUrl: rawUrl };
+  }
+
+  try {
+    const host = new URL(rawUrl).hostname.toLowerCase();
+    const isDrm = DRM_HOST_HINTS.some(h => host.includes(h));
+    return { playbackType: isDrm ? 'drm' : 'page', streamUrl: '', siteUrl: rawUrl };
+  } catch (_) {
+    return { playbackType: 'page', streamUrl: '', siteUrl: rawUrl };
+  }
+}
+
+function sourceDescriptorForBook(book) {
+  if (book.playbackType || book.streamUrl || book.siteUrl) {
+    return {
+      playbackType: book.playbackType || 'page',
+      streamUrl: book.streamUrl || '',
+      siteUrl: book.siteUrl || book.sourceUrl || ''
+    };
+  }
+  return resolveSourceFromUrl(book.sourceUrl || '');
+}
+
+function sourceTypeLabel(type) {
+  const labels = {
+    direct: 'Direct Audio',
+    page: 'Source Page',
+    drm: 'DRM / Provider App',
+  };
+  return labels[type] || labels.page;
+}
+
+function sourceTypeWeight(type) {
+  if (type === 'direct') return 2;
+  if (type === 'page') return 1;
+  return 0;
+}
+
+function archiveAudioStreamUrl(identifier, fileName) {
+  return `https://archive.org/download/${encodeURIComponent(identifier)}/${encodeURIComponent(fileName)}`;
+}
+
+function pickArchiveAudioFile(files) {
+  const list = Array.isArray(files) ? files : [];
+  const preferredExt = ['.mp3', '.m4a', '.ogg', '.oga', '.wav', '.opus', '.flac'];
+
+  for (const ext of preferredExt) {
+    const found = list.find(f => {
+      const name = String(f?.name || '').toLowerCase();
+      return name.endsWith(ext);
+    });
+    if (found?.name) return found.name;
+  }
+
+  return '';
+}
+
+async function resolveArchivePlayback(identifier) {
+  if (!identifier) return null;
+  try {
+    const res = await fetch(`https://archive.org/metadata/${encodeURIComponent(identifier)}`);
+    if (!res.ok) return null;
+    const data = await res.json();
+    const fileName = pickArchiveAudioFile(data.files || []);
+    if (!fileName) return null;
+
+    return {
+      playbackType: 'direct',
+      streamUrl: archiveAudioStreamUrl(identifier, fileName),
+      siteUrl: `https://archive.org/details/${encodeURIComponent(identifier)}`
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
 function downloadFileNameForBook(book) {
   const safeTitle = String(book.title || 'audiobook')
     .trim()
@@ -537,20 +622,24 @@ function renderDetail(book) {
     ? `<img class="detail-cover" src="${escapeHtml(cover)}" alt="" loading="lazy" />`
     : `<div class="detail-cover-placeholder">📚</div>`;
 
-  const audioMime = book.sourceUrl ? audioMimeFromUrl(book.sourceUrl) : '';
-  const canPlayInApp = Boolean(book.sourceUrl) && isPlayableAudioUrl(book.sourceUrl);
-  const sourceHtml = book.sourceUrl
-    ? `<p><strong>Source:</strong> <a href="${escapeHtml(safeUrl(book.sourceUrl))}" target="_blank" rel="noopener noreferrer">${escapeHtml(book.sourceUrl)}</a></p>`
+  const source = sourceDescriptorForBook(book);
+  const sourceSiteUrl = source.siteUrl || '';
+  const sourceStreamUrl = source.streamUrl || '';
+  const audioMime = sourceStreamUrl ? audioMimeFromUrl(sourceStreamUrl) : '';
+  const canPlayInApp = source.playbackType === 'direct' && Boolean(sourceStreamUrl) && isPlayableAudioUrl(sourceStreamUrl);
+  const sourceHtml = sourceSiteUrl
+    ? `<p><strong>Source:</strong> ${escapeHtml(sourceTypeLabel(source.playbackType))}</p>
+       <p><a class="btn-secondary source-open-btn" href="${escapeHtml(safeUrl(sourceSiteUrl))}" target="_blank" rel="noopener noreferrer">Open on source site</a></p>`
     : `<p style="color:var(--text-muted)">No source URL saved.</p>`;
   const inAppPlayerHtml = canPlayInApp
     ? `<div class="audio-player-wrap">
          <p class="audio-player-label">Play in app:</p>
          <audio id="book-audio-player" controls preload="metadata">
-           <source src="${escapeHtml(safeUrl(book.sourceUrl))}" type="${escapeHtml(audioMime)}" />
+           <source src="${escapeHtml(safeUrl(sourceStreamUrl))}" type="${escapeHtml(audioMime)}" />
            Your browser does not support audio playback.
          </audio>
        </div>`
-    : (book.sourceUrl
+    : (sourceSiteUrl
       ? `<p class="audio-player-hint">To play in app, paste a direct audio file URL (for example .mp3, .m4a, .ogg, .wav) in the Add/Edit form.</p>`
       : '');
 
@@ -558,10 +647,10 @@ function renderDetail(book) {
     ? `<div class="detail-offline">
          <h2>Offline</h2>
          <p class="audio-offline-copy">Download this audio file to your device for offline listening.</p>
-         <a id="book-download-link" class="btn-secondary" href="${escapeHtml(safeUrl(book.sourceUrl))}" download="${escapeHtml(downloadFileNameForBook(book))}">Download Audio</a>
+         <a id="book-download-link" class="btn-secondary" href="${escapeHtml(safeUrl(sourceStreamUrl))}" download="${escapeHtml(downloadFileNameForBook({ ...book, sourceUrl: sourceStreamUrl }))}">Download Audio</a>
          <p class="audio-offline-hint">Downloaded files are kept on your device in your browser download location.</p>
        </div>`
-    : (book.sourceUrl
+    : (sourceSiteUrl
       ? `<div class="detail-offline">
            <h2>Offline</h2>
            <p class="audio-offline-hint">Offline download is available when the source is a direct audio file URL (.mp3, .m4a, .ogg, .wav, .opus, .flac).</p>
@@ -648,6 +737,9 @@ function startEdit(id) {
   document.getElementById('form-cover-id').value = book.coverId || '';
   document.getElementById('form-rating').value = book.rating || 0;
   document.getElementById('add-form').dataset.authorKey = book.authorKey || '';
+  document.getElementById('add-form').dataset.playbackType = book.playbackType || '';
+  document.getElementById('add-form').dataset.sourceStreamUrl = book.streamUrl || '';
+  document.getElementById('add-form').dataset.sourceSiteUrl = book.siteUrl || '';
   updateStars(book.rating || 0);
   document.getElementById('ol-results').classList.remove('open');
   showView('add');
@@ -728,20 +820,43 @@ async function runOlSearch() {
   try {
     const params = new URLSearchParams({
       limit: '20',
-      fields: 'key,title,author_name,author_key,cover_i,first_publish_year',
+      fields: 'key,title,author_name,author_key,cover_i,first_publish_year,ia',
     });
     params.set(mode === 'author' ? 'author' : 'title', q);
 
     const res = await fetch(`${OL_API}/search.json?${params}`);
     const data = await res.json();
     const rawDocs = data.docs || [];
-    const docs = rawDocs
-      .map(d => ({
+    const enrichedDocs = await Promise.all(rawDocs.map(async (d, idx) => {
+      const defaultSiteUrl = `https://openlibrary.org${d.key || ''}`;
+      let resolvedSource = { playbackType: 'page', streamUrl: '', siteUrl: defaultSiteUrl };
+
+      // Limit archive lookups to keep search responsive.
+      if (idx < 8) {
+        const iaIds = Array.isArray(d.ia) ? d.ia : (d.ia ? [d.ia] : []);
+        for (const iaId of iaIds.slice(0, 2)) {
+          const archiveResolved = await resolveArchivePlayback(iaId);
+          if (archiveResolved) {
+            resolvedSource = archiveResolved;
+            break;
+          }
+        }
+      }
+
+      return {
         ...d,
-        _score: openLibraryResultScore(q, d.title || '', (d.author_name || []).join(' '), mode)
-      }))
+        _score: openLibraryResultScore(q, d.title || '', (d.author_name || []).join(' '), mode),
+        _source: resolvedSource
+      };
+    }));
+
+    const docs = enrichedDocs
       .filter(d => d._score >= 20)
-      .sort((a, b) => b._score - a._score)
+      .sort((a, b) => {
+        const typeDelta = sourceTypeWeight(b._source.playbackType) - sourceTypeWeight(a._source.playbackType);
+        if (typeDelta !== 0) return typeDelta;
+        return b._score - a._score;
+      })
       .slice(0, 10);
 
     if (docs.length === 0) {
@@ -752,18 +867,27 @@ async function runOlSearch() {
     list.innerHTML = docs.map(d => {
       const rawTitle = d.title || 'Unknown';
       const rawAuthor = (d.author_name || []).join(', ') || 'Unknown';
+      const source = d._source || { playbackType: 'page', streamUrl: '', siteUrl: `https://openlibrary.org${d.key || ''}` };
       const cover = d.cover_i
         ? `<img src="${OL_COVERS}/${d.cover_i}-S.jpg" alt="" loading="lazy" />`
         : '<div style="width:32px;height:44px;background:var(--surface)"></div>';
       const year = d.first_publish_year ? ` (${d.first_publish_year})` : '';
+      const sourceBadge = source.playbackType === 'direct'
+        ? '<span class="ol-result-badge direct">Direct Audio</span>'
+        : (source.playbackType === 'drm'
+          ? '<span class="ol-result-badge drm">DRM</span>'
+          : '<span class="ol-result-badge page">Source Page</span>');
       return `<li class="ol-result-item"
                   data-title="${escapeHtml(rawTitle)}" data-author="${escapeHtml(rawAuthor)}"
                   data-olkey="${escapeHtml(d.key || '')}" data-coverid="${escapeHtml(String(d.cover_i || ''))}"
-                  data-authorkey="${escapeHtml((d.author_key || [])[0] || '')}">
+                  data-authorkey="${escapeHtml((d.author_key || [])[0] || '')}"
+                  data-playbacktype="${escapeHtml(source.playbackType)}"
+                  data-streamurl="${escapeHtml(source.streamUrl || '')}"
+                  data-siteurl="${escapeHtml(source.siteUrl || '')}">
                 ${cover}
                 <div>
                   <div class="r-title">${escapeHtml(rawTitle)}${year}</div>
-                  <div class="r-author">${escapeHtml(rawAuthor)}</div>
+                  <div class="r-author">${escapeHtml(rawAuthor)} ${sourceBadge}</div>
                 </div>
               </li>`;
     }).join('');
@@ -781,7 +905,18 @@ function fillFormFromResult(el) {
   document.getElementById('form-author').value = el.dataset.author;
   document.getElementById('form-ol-key').value = el.dataset.olkey;
   document.getElementById('form-cover-id').value = el.dataset.coverid;
-  document.getElementById('add-form').dataset.authorKey = el.dataset.authorkey;
+  const form = document.getElementById('add-form');
+  form.dataset.authorKey = el.dataset.authorkey;
+  form.dataset.playbackType = el.dataset.playbacktype || 'page';
+  form.dataset.sourceStreamUrl = el.dataset.streamurl || '';
+  form.dataset.sourceSiteUrl = el.dataset.siteurl || '';
+
+  const resolvedSourceUrl = (form.dataset.playbackType === 'direct' && form.dataset.sourceStreamUrl)
+    ? form.dataset.sourceStreamUrl
+    : form.dataset.sourceSiteUrl;
+  if (resolvedSourceUrl) {
+    document.getElementById('form-source').value = resolvedSourceUrl;
+  }
   document.getElementById('form-title').focus();
 }
 
@@ -834,6 +969,13 @@ document.getElementById('add-form').addEventListener('submit', async e => {
   const olKey = document.getElementById('form-ol-key').value;
   const coverId = document.getElementById('form-cover-id').value;
   const authorKey = form.dataset.authorKey || '';
+  const sourceFromForm = resolveSourceFromUrl(sourceUrl);
+  const fallbackSource = {
+    playbackType: form.dataset.playbackType || sourceFromForm.playbackType,
+    streamUrl: form.dataset.sourceStreamUrl || sourceFromForm.streamUrl,
+    siteUrl: form.dataset.sourceSiteUrl || sourceFromForm.siteUrl,
+  };
+  const resolvedSource = sourceUrl ? sourceFromForm : fallbackSource;
 
   if (!title || !author) return;
 
@@ -843,10 +985,41 @@ document.getElementById('add-form').addEventListener('submit', async e => {
   try {
     if (editingId) {
       const existing = books.find(b => b.id === editingId) || {};
-      await persistBook({ ...existing, title, author, narrator, status, sourceUrl, rating, notes, olKey, coverId, authorKey });
+      await persistBook({
+        ...existing,
+        title,
+        author,
+        narrator,
+        status,
+        sourceUrl: resolvedSource.siteUrl || sourceUrl,
+        playbackType: resolvedSource.playbackType,
+        streamUrl: resolvedSource.streamUrl,
+        siteUrl: resolvedSource.siteUrl,
+        rating,
+        notes,
+        olKey,
+        coverId,
+        authorKey
+      });
       editingId = null;
     } else {
-      await persistBook({ id: genId(), title, author, narrator, status, sourceUrl, rating, notes, olKey, coverId, authorKey, addedAt: Date.now() });
+      await persistBook({
+        id: genId(),
+        title,
+        author,
+        narrator,
+        status,
+        sourceUrl: resolvedSource.siteUrl || sourceUrl,
+        playbackType: resolvedSource.playbackType,
+        streamUrl: resolvedSource.streamUrl,
+        siteUrl: resolvedSource.siteUrl,
+        rating,
+        notes,
+        olKey,
+        coverId,
+        authorKey,
+        addedAt: Date.now()
+      });
     }
   } finally {
     btn.disabled = false;
@@ -867,6 +1040,9 @@ function resetAddForm() {
   document.getElementById('add-form-title').textContent = 'Add Audiobook';
   document.getElementById('add-form').reset();
   document.getElementById('add-form').dataset.authorKey = '';
+  document.getElementById('add-form').dataset.playbackType = '';
+  document.getElementById('add-form').dataset.sourceStreamUrl = '';
+  document.getElementById('add-form').dataset.sourceSiteUrl = '';
   document.getElementById('form-id').value = '';
   document.getElementById('form-ol-key').value = '';
   document.getElementById('form-cover-id').value = '';
