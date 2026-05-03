@@ -456,6 +456,10 @@ function coverUrl(coverId, size = 'M') {
   return coverId ? `${OL_COVERS}/${coverId}-${size}.jpg` : null;
 }
 
+function libbySearchUrl(title) {
+  return `https://libbyapp.com/search/search/query:${encodeURIComponent(title)}`;
+}
+
 function librivoxSearchUrl(title) {
   return `https://librivox.org/search?q=${encodeURIComponent(title)}&search_form=advanced&search_order=alpha`;
 }
@@ -693,6 +697,7 @@ function renderDetail(book) {
       ${inAppPlayerHtml}
       <p style="margin-top:.5rem; font-size:.82rem; color:var(--text-muted)">
         Search free:
+        <a href="${libbySearchUrl(book.title)}" target="_blank" rel="noopener noreferrer">Libby (library)</a> ·
         <a href="${librivoxSearchUrl(book.title)}" target="_blank" rel="noopener noreferrer">LibriVox</a> ·
         <a href="${loyalBooksSearchUrl(book.title)}" target="_blank" rel="noopener noreferrer">Loyal Books</a>
       </p>
@@ -864,7 +869,21 @@ async function runOlSearch() {
       return;
     }
 
-    list.innerHTML = docs.map(d => {
+    const libbyItem = `<li class="ol-result-item ol-result-libby"
+                  data-title="${escapeHtml(q)}" data-author=""
+                  data-olkey="" data-coverid=""
+                  data-authorkey=""
+                  data-playbacktype="page"
+                  data-streamurl=""
+                  data-siteurl="${escapeHtml(libbySearchUrl(q))}">
+                <div class="ol-result-libby-icon">L</div>
+                <div>
+                  <div class="r-title">${escapeHtml(q)}</div>
+                  <div class="r-author">Search on Libby <span class="ol-result-badge libby">Free via library</span></div>
+                </div>
+              </li>`;
+
+    list.innerHTML = libbyItem + docs.map(d => {
       const rawTitle = d.title || 'Unknown';
       const rawAuthor = (d.author_name || []).join(', ') || 'Unknown';
       const source = d._source || { playbackType: 'page', streamUrl: '', siteUrl: `https://openlibrary.org${d.key || ''}` };

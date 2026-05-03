@@ -584,6 +584,30 @@ select option {
   border-color: #5a4425;
 }
 
+.ol-result-badge.libby {
+  background: #1a2c3a;
+  color: #5bc4f5;
+  border-color: #2a4d6a;
+}
+
+.ol-result-libby {
+  border-left: 3px solid #5bc4f5;
+}
+
+.ol-result-libby-icon {
+  width: 32px;
+  height: 44px;
+  background: #1a2c3a;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #5bc4f5;
+  font-weight: 700;
+  font-size: 1.1rem;
+  flex-shrink: 0;
+}
+
 /* Form groups */
 .form-group {
   margin-bottom: 1.1rem;
