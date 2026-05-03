@@ -82,6 +82,10 @@
 
       <div class="search-lookup">
         <label for="ol-search">Search Open Library to auto-fill details</label>
+        <div class="ol-search-mode" role="radiogroup" aria-label="Open Library search mode">
+          <label><input type="radio" name="ol-search-mode" value="title" checked /> Search by title</label>
+          <label><input type="radio" name="ol-search-mode" value="author" /> Search by author</label>
+        </div>
         <div class="search-row">
           <input type="text" id="ol-search" placeholder="Title or author…" />
           <button id="ol-search-btn" class="btn-secondary">Search</button>

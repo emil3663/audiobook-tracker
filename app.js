@@ -337,6 +337,66 @@ function hooplaSearchUrl(title) {
   return `https://www.hoopladigital.com/search?q=${encodeURIComponent(title)}`;
 }
 
+const SEARCH_STOP_WORDS = new Set(['a', 'an', 'and', 'as', 'at', 'by', 'for', 'from', 'in', 'into', 'of', 'on', 'or', 'the', 'to', 'with']);
+
+function normalizeSearchText(text) {
+  return String(text || '')
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function searchTokens(text) {
+  return normalizeSearchText(text)
+    .split(' ')
+    .filter(t => t && !SEARCH_STOP_WORDS.has(t));
+}
+
+function openLibraryResultScore(query, title, authors, mode = 'title') {
+  const q = normalizeSearchText(query);
+  if (!q) return 0;
+
+  const t = normalizeSearchText(title);
+  const a = normalizeSearchText(authors);
+  let score = 0;
+
+  if (mode === 'author') {
+    if (a === q) score += 140;
+    if (a.startsWith(q)) score += 80;
+    if (a.includes(q)) score += 60;
+    if (t.includes(q)) score += 30;
+  } else {
+    if (t === q) score += 140;
+    if (t.startsWith(q)) score += 80;
+    if (t.includes(q)) score += 60;
+    if (a.includes(q)) score += 30;
+  }
+
+  const qTokens = searchTokens(q);
+  if (qTokens.length) {
+    const titleTokens = new Set(searchTokens(t));
+    const authorTokens = new Set(searchTokens(a));
+    let matches = 0;
+
+    for (const tok of qTokens) {
+      if (titleTokens.has(tok) || authorTokens.has(tok)) matches += 1;
+    }
+
+    score += Math.round((matches / qTokens.length) * 60);
+    if (matches === qTokens.length) score += 40;
+    if (matches === 0 && !t.includes(q) && !a.includes(q)) score -= 100;
+  }
+
+  return score;
+}
+
+function getOlSearchMode() {
+  return document.querySelector('input[name="ol-search-mode"]:checked')?.value === 'author'
+    ? 'author'
+    : 'title';
+}
+
 function genId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 }
@@ -584,17 +644,32 @@ document.getElementById('ol-search').addEventListener('keydown', e => {
 async function runOlSearch() {
   const q = document.getElementById('ol-search').value.trim();
   if (!q) return;
+  const mode = getOlSearchMode();
   const list = document.getElementById('ol-results');
   list.innerHTML = '<li style="padding:.6rem .85rem;color:var(--text-muted)">Searching…</li>';
   list.classList.add('open');
 
   try {
-    const res = await fetch(`${OL_API}/search.json?q=${encodeURIComponent(q)}&limit=10&fields=key,title,author_name,author_key,cover_i,first_publish_year`);
+    const params = new URLSearchParams({
+      limit: '20',
+      fields: 'key,title,author_name,author_key,cover_i,first_publish_year',
+    });
+    params.set(mode === 'author' ? 'author' : 'title', q);
+
+    const res = await fetch(`${OL_API}/search.json?${params}`);
     const data = await res.json();
-    const docs = data.docs || [];
+    const rawDocs = data.docs || [];
+    const docs = rawDocs
+      .map(d => ({
+        ...d,
+        _score: openLibraryResultScore(q, d.title || '', (d.author_name || []).join(' '), mode)
+      }))
+      .filter(d => d._score >= 20)
+      .sort((a, b) => b._score - a._score)
+      .slice(0, 10);
 
     if (docs.length === 0) {
-      list.innerHTML = '<li style="padding:.6rem .85rem;color:var(--text-muted)">No results found.</li>';
+      list.innerHTML = '<li style="padding:.6rem .85rem;color:var(--text-muted)">No relevant results found. Try adding author name for better matches.</li>';
       return;
     }
 

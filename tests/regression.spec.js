@@ -587,6 +587,37 @@ test.describe('Open Library lookup (Add form)', () => {
         await expect(page.locator('#ol-search-btn')).toBeVisible();
     });
 
+    test('search mode radios are visible with title selected by default', async ({ page }) => {
+        await resetState(page);
+        await page.click('.nav-btn[data-view="add"]');
+        await expect(page.locator('input[name="ol-search-mode"][value="title"]')).toBeVisible();
+        await expect(page.locator('input[name="ol-search-mode"][value="author"]')).toBeVisible();
+        await expect(page.locator('input[name="ol-search-mode"][value="title"]')).toBeChecked();
+    });
+
+    test('author mode search sends author query parameter', async ({ page }) => {
+        await resetState(page);
+        await page.click('.nav-btn[data-view="add"]');
+
+        let capturedUrl = '';
+        await page.route('https://openlibrary.org/search.json**', async route => {
+            capturedUrl = route.request().url();
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ docs: [] }),
+            });
+        });
+
+        await page.check('input[name="ol-search-mode"][value="author"]');
+        await page.fill('#ol-search', 'jenny han');
+        await page.click('#ol-search-btn');
+
+        expect(capturedUrl).toContain('author=jenny+han');
+        expect(capturedUrl).not.toContain('title=jenny+han');
+        await page.unroute('https://openlibrary.org/search.json**');
+    });
+
     test('empty search does not show results list', async ({ page }) => {
         await resetState(page);
         await page.click('.nav-btn[data-view="add"]');

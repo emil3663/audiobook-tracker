@@ -478,6 +478,26 @@ select option {
   flex-wrap: wrap;
 }
 
+.ol-search-mode {
+  display: flex;
+  gap: .9rem;
+  flex-wrap: wrap;
+  margin: .15rem 0 .7rem;
+}
+
+.ol-search-mode label {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  margin: 0;
+  font-size: .82rem;
+  color: var(--text-muted);
+}
+
+.ol-search-mode input[type="radio"] {
+  accent-color: var(--accent);
+}
+
 .search-row input,
 .search-row select {
   flex: 1;
