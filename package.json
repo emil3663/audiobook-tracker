@@ -1,0 +1,26 @@
+{
+  "name": "audiobook-tracker",
+  "version": "1.0.0",
+  "description": "A lightweight, browser-based app to track the audiobooks you've listened to and discover similar books by the same author — no sign-up, no server, no cost.",
+  "main": "app.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:regression": "playwright test tests/regression.spec.js",
+    "report": "playwright show-report"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/emil3663/audiobook-tracker.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/emil3663/audiobook-tracker/issues"
+  },
+  "homepage": "https://github.com/emil3663/audiobook-tracker#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
