@@ -949,7 +949,7 @@ async function runOlSearch() {
                 <div class="ol-result-libby-icon">L</div>
                 <div>
                   <div class="r-title">${escapeHtml(q)}</div>
-                  <div class="r-author">Search on Libby <span class="ol-result-badge libby">Free via library</span> <span class="ol-result-badge length-likely">Likely Full</span></div>
+                  <div class="r-author">Search on Libby <span class="ol-result-badge libby">Libby</span> <span class="ol-result-badge length-likely">Likely Full</span></div>
                 </div>
               </li>`;
 
@@ -958,6 +958,7 @@ async function runOlSearch() {
       const rawAuthor = (d.author_name || []).join(', ') || 'Unknown';
       const source = d._source || { playbackType: 'page', streamUrl: '', siteUrl: `https://openlibrary.org${d.key || ''}` };
       const lengthHint = sourceLengthHint(source);
+      const siteLabel = sourceSiteLabelFromUrl(source.siteUrl || source.streamUrl || '');
       const cover = d.cover_i
         ? `<img src="${OL_COVERS}/${d.cover_i}-S.jpg" alt="" loading="lazy" />`
         : '<div style="width:32px;height:44px;background:var(--surface)"></div>';
@@ -977,7 +978,7 @@ async function runOlSearch() {
                 ${cover}
                 <div>
                   <div class="r-title">${escapeHtml(rawTitle)}${year}</div>
-                  <div class="r-author">${escapeHtml(rawAuthor)} ${sourceBadge} <span class="ol-result-badge length-${escapeHtml(lengthHint.tone)}">${escapeHtml(lengthHint.shortLabel)}</span></div>
+                  <div class="r-author">${escapeHtml(rawAuthor)} ${sourceBadge} <span class="ol-result-badge site">${escapeHtml(siteLabel)}</span> <span class="ol-result-badge length-${escapeHtml(lengthHint.tone)}">${escapeHtml(lengthHint.shortLabel)}</span></div>
                 </div>
               </li>`;
     }).join('');

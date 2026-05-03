@@ -613,6 +613,12 @@ select option {
   border-color: #5d5349;
 }
 
+.ol-result-badge.site {
+  background: #2a3148;
+  color: #b7c8ff;
+  border-color: #42507a;
+}
+
 .ol-result-libby {
   border-left: 3px solid #5bc4f5;
 }
