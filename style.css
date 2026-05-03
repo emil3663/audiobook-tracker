@@ -426,6 +426,17 @@ select option {
   margin-top: .15rem;
 }
 
+.book-source-site {
+  display: inline-block;
+  margin-top: .3rem;
+  font-size: .72rem;
+  color: var(--accent2);
+  background: #2a2d4a;
+  border: 1px solid #3a3f66;
+  border-radius: 999px;
+  padding: .1rem .45rem;
+}
+
 .book-stars {
   font-size: .875rem;
   color: var(--yellow);

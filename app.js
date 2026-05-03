@@ -372,6 +372,36 @@ function sourceTypeLabel(type) {
   return labels[type] || labels.page;
 }
 
+function sourceSiteLabelFromUrl(rawUrl) {
+  const url = String(rawUrl || '').trim();
+  if (!url) return 'Unknown';
+
+  try {
+    const host = new URL(url).hostname.toLowerCase().replace(/^www\./, '');
+    const hostLabels = {
+      'openlibrary.org': 'Open Library',
+      'archive.org': 'Internet Archive',
+      'libriVox.org': 'LibriVox',
+      'librivox.org': 'LibriVox',
+      'loyalbooks.com': 'Loyal Books',
+      'libbyapp.com': 'Libby',
+      'hoopladigital.com': 'Hoopla',
+      'youtube.com': 'YouTube',
+      'youtu.be': 'YouTube',
+      'spotify.com': 'Spotify'
+    };
+
+    if (hostLabels[host]) return hostLabels[host];
+    const parts = host.split('.');
+    if (parts.length >= 2) {
+      return parts[parts.length - 2].charAt(0).toUpperCase() + parts[parts.length - 2].slice(1);
+    }
+    return host;
+  } catch (_) {
+    return 'Unknown';
+  }
+}
+
 function sourceLengthHint(source) {
   const s = source || {};
   const site = String(s.siteUrl || '').toLowerCase();
@@ -620,6 +650,8 @@ function renderShelf() {
 
   list.innerHTML = filtered.map(book => {
     const cover = coverUrl(book.coverId, 'S');
+    const source = sourceDescriptorForBook(book);
+    const sourceSiteLabel = sourceSiteLabelFromUrl(source.siteUrl || source.streamUrl || book.sourceUrl || '');
     const thumbHtml = cover
       ? `<img class="book-cover-thumb" src="${escapeHtml(cover)}" alt="" loading="lazy" />`
       : `<div class="book-cover-placeholder">📚</div>`;
@@ -631,6 +663,7 @@ function renderShelf() {
           <div class="title">${escapeHtml(book.title)}</div>
           <div class="author">${escapeHtml(book.author)}</div>
           ${book.narrator ? `<div class="author">Narrator: ${escapeHtml(book.narrator)}</div>` : ''}
+          <div class="book-source-site">Source: ${escapeHtml(sourceSiteLabel)}</div>
           ${book.rating > 0 ? `<div class="book-stars">${starsHtml(book.rating)}</div>` : ''}
         </div>
         <span class="status-badge status-${escapeHtml(book.status)}">${statusLabel(book.status)}</span>
